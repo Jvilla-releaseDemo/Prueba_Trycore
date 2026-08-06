@@ -1,7 +1,0 @@
-services:
-  trycore-match:
-    build: .
-    container_name: trycore-match
-    ports:
-      - "8080:8080"
-    restart: unless-stopped
