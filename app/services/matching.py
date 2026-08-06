@@ -34,12 +34,16 @@ class ResultadoMatch:
     razones: list[str]
 
 
-def calcular_cobertura_skills(candidato: Candidato, vacante: Vacante) -> float:
-    requeridas = vacante.skills_requeridas
-    if not requeridas:
+def normalizar_skills(skills: list[str]) -> set[str]:
+    """Normaliza a minúsculas y elimina duplicados antes de cualquier cálculo."""
+    return {s.lower() for s in skills}
+
+
+def calcular_cobertura_skills(
+    skills_candidato: set[str], skills_requeridas: set[str]
+) -> float:
+    if not skills_requeridas:
         return COBERTURA_SKILLS_VACIAS
-    skills_candidato = {s.lower() for s in candidato.skills}
-    skills_requeridas = {s.lower() for s in requeridas}
     coincidentes = len(skills_candidato & skills_requeridas)
     return coincidentes / len(skills_requeridas)
 
@@ -78,7 +82,7 @@ def construir_razones(
     if brecha == 0:
         razones.append("Experiencia cumple el mínimo requerido")
     else:
-        razones.append(f"Faltan {brecha} años de experiencia")
+        razones.append(f"Brecha de experiencia: {brecha} años")
 
     if bonus == 10:
         razones.append("Contrato a término indefinido suma 10 puntos")
@@ -89,7 +93,10 @@ def construir_razones(
 
 
 def calcular_match(candidato: Candidato, vacante: Vacante) -> ResultadoMatch:
-    cobertura = calcular_cobertura_skills(candidato, vacante)
+    skills_candidato = normalizar_skills(candidato.skills)
+    skills_requeridas = normalizar_skills(vacante.skills_requeridas)
+
+    cobertura = calcular_cobertura_skills(skills_candidato, skills_requeridas)
     brecha = calcular_brecha_experiencia(candidato, vacante)
     bonus = BONUS_CONTRATO[vacante.tipo_contrato]
 
@@ -98,14 +105,11 @@ def calcular_match(candidato: Candidato, vacante: Vacante) -> ResultadoMatch:
         cobertura * PESO_SKILLS + factor_experiencia * PESO_EXPERIENCIA + bonus
     )
 
-    candidatas = {s.lower() for s in candidato.skills}
-    requeridas = {s.lower() for s in vacante.skills_requeridas}
-    coincidentes = len(candidatas & requeridas)
-
+    coincidentes = len(skills_candidato & skills_requeridas)
     razones = construir_razones(
         cobertura=cobertura,
         coincidentes=coincidentes,
-        requeridas=len(vacante.skills_requeridas),
+        requeridas=len(skills_requeridas),
         brecha=brecha,
         bonus=bonus,
     )
@@ -117,3 +121,28 @@ def calcular_match(candidato: Candidato, vacante: Vacante) -> ResultadoMatch:
         brecha_experiencia=brecha,
         razones=razones,
     )
+
+
+def calculate_match(candidato, vacante) -> dict:
+    """Compatibilidad con el contrato externo test_matchv2.py.
+
+    Recibe modelos Pydantic (o cualquier objeto con los mismos atributos)
+    y devuelve un dict. La fórmula utilizada es la oficial (70/20/10).
+    """
+    dominio_candidato = Candidato(
+        skills=candidato.skills,
+        experiencia_anios=candidato.experiencia_anios,
+    )
+    dominio_vacante = Vacante(
+        skills_requeridas=vacante.skills_requeridas,
+        experiencia_min=vacante.experiencia_min,
+        tipo_contrato=vacante.tipo_contrato,
+    )
+    resultado = calcular_match(dominio_candidato, dominio_vacante)
+    return {
+        "score": resultado.score,
+        "categoria": resultado.categoria,
+        "cobertura_skills": resultado.cobertura_skills,
+        "brecha_experiencia": resultado.brecha_experiencia,
+        "razones": resultado.razones,
+    }

@@ -75,6 +75,9 @@ def test_skills_requeridas_vacias():
         contrato="prestacion_servicios",
     )
     assert r.cobertura_skills == 1.0
+    assert r.score == 78
+    assert r.categoria == "GOOD_FIT"
+    assert r.razones[0] == "Sin skills requeridas, cobertura considerada completa"
 
 
 def test_experiencia_por_encima_del_minimo():
@@ -96,3 +99,28 @@ def test_categorias_en_frontera():
     assert calcular_categoria(65) == "GOOD_FIT"
     assert calcular_categoria(84) == "GOOD_FIT"
     assert calcular_categoria(85) == "EXCELLENT_FIT"
+
+
+def test_skills_requeridas_duplicadas_denominador_set():
+    r = resultado(
+        skills=["python"],
+        exp_anios=0,
+        skills_req=["python", "python", "sql"],
+        exp_min=0,
+        contrato="prestacion_servicios",
+    )
+    assert r.cobertura_skills == 0.5
+    assert r.razones[0] == "Cobertura de skills 1/2 (50%)"
+
+
+def test_case_insensitive_coherencia_entre_cobertura_y_razones():
+    r = resultado(
+        skills=["Python", "FastAPI", "docker"],
+        exp_anios=0,
+        skills_req=["python", "fastapi", "docker"],
+        exp_min=0,
+        contrato="prestacion_servicios",
+    )
+    assert r.cobertura_skills == 1.0
+    assert r.razones[0] == "Cobertura de skills 3/3 (100%)"
+    assert r.score == 90
