@@ -32,7 +32,13 @@ docker build -t trycore-match .
 docker run -p 8080:8080 trycore-match
 ```
 
-Tras `docker run`, el servicio responde en `http://localhost:8080/match` sin pasos manuales adicionales.
+### Con Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+Tras `docker run` o `docker compose up`, el servicio responde en `http://localhost:8080/match` sin pasos manuales adicionales.
 
 ## Cómo testear
 
@@ -120,6 +126,7 @@ trycore-match/
 │   └── test_api.py          # Pruebas del endpoint HTTP
 ├── requirements.txt
 ├── Dockerfile
+├── docker-compose.yml
 ├── .dockerignore
 └── .gitignore
 ```
