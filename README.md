@@ -69,7 +69,28 @@ Respuesta:
 }
 ```
 
-## Decisiones tomadas (ambigüedades de las reglas)
+## Cálculo del score
+
+La fórmula de la sección 2.4 del enunciado se implementa literalmente, con estos pesos:
+
+- **70%** — cobertura de skills: `cobertura_skills * 70`
+- **20%** — experiencia, normalizada a 5 años: `max(0, 1 - brecha_experiencia / 5) * 20`
+- **10%** — bonus por tipo de contrato: `10` indefinido, `5` obra_labor, `0` prestacion_servicios
+
+```
+score = round(cobertura_skills * 70 + max(0, 1 - brecha_experiencia / 5) * 20 + bonus_contrato)
+```
+
+Ejemplo verificado (candidato `java/spring/sql` con 3 años vs vacante que pide `java/spring/kafka/sql` con mínimo 5 años, contrato indefinido → **score 74**):
+
+```
+cobertura_skills = 3/4 = 0.75          → 0.75 × 70 = 52.5
+brecha_experiencia = max(0, 5-3) = 2    → max(0, 1 - 2/5) × 20 = 12
+bonus_contrato (indefinido)             → 10
+score = round(52.5 + 12 + 10) = 74      → GOOD_FIT
+```
+
+## Decisiones que tomaste
 
 | Ambigüedad | Decisión |
 |---|---|
@@ -95,6 +116,7 @@ trycore-match/
 │   └── index.html           # E1: frontend mínimo
 ├── tests/
 │   ├── test_matching.py     # Pruebas de la lógica de matching
+│   ├── test_matchv3.py      # Escenarios de score calculados (incluye score 74)
 │   └── test_api.py          # Pruebas del endpoint HTTP
 ├── requirements.txt
 ├── Dockerfile
