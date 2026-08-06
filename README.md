@@ -32,13 +32,7 @@ docker build -t trycore-match .
 docker run -p 8080:8080 trycore-match
 ```
 
-### Con Docker Compose
-
-```bash
-docker compose up -d --build
-```
-
-Tras `docker run` o `docker compose up`, el servicio responde en `http://localhost:8080/match` sin pasos manuales adicionales.
+Tras `docker run`, el servicio responde en `http://localhost:8080/match` sin pasos manuales adicionales.
 
 ## Cómo testear
 
@@ -73,6 +67,71 @@ Respuesta:
     "Contrato a término indefinido suma 10 puntos"
   ]
 }
+```
+
+## Guía de verificación con curl
+
+Servicio en `http://localhost:8080`. Verificar que está arriba:
+
+```bash
+curl -s -o /dev/null -w "docs: %{http_code}\n" http://localhost:8080/docs
+# esperado: docs: 200
+
+curl -s -o /dev/null -w "root: %{http_code}\n" http://localhost:8080/
+# esperado: root: 200
+```
+
+### Las 4 categorías
+
+```bash
+# EXCELLENT_FIT — cobertura total, experiencia ≥ mínimo, indefinido → score 100
+curl -s -X POST http://localhost:8080/match -H 'Content-Type: application/json' \
+  -d '{"candidato":{"skills":["python","fastapi","docker"],"experiencia_anios":5},"vacante":{"skills_requeridas":["python","fastapi","docker"],"experiencia_min":2,"tipo_contrato":"indefinido"}}'
+
+# GOOD_FIT — ejemplo del enunciado → score 74
+curl -s -X POST http://localhost:8080/match -H 'Content-Type: application/json' \
+  -d '{"candidato":{"skills":["java","spring","sql"],"experiencia_anios":3},"vacante":{"skills_requeridas":["java","spring","kafka","sql"],"experiencia_min":5,"tipo_contrato":"indefinido"}}'
+
+# MAYBE — cobertura baja → score 43
+curl -s -X POST http://localhost:8080/match -H 'Content-Type: application/json' \
+  -d '{"candidato":{"skills":["python"],"experiencia_anios":1},"vacante":{"skills_requeridas":["python","java","sql"],"experiencia_min":1,"tipo_contrato":"prestacion_servicios"}}'
+
+# NO_FIT — brecha de experiencia grande → score 18
+curl -s -X POST http://localhost:8080/match -H 'Content-Type: application/json' \
+  -d '{"candidato":{"skills":["sql"],"experiencia_anios":1},"vacante":{"skills_requeridas":["python","java","sql","go"],"experiencia_min":8,"tipo_contrato":"prestacion_servicios"}}'
+```
+
+### Bonus por tipo de contrato (mismo input, 3 valores)
+
+```bash
+for t in indefinido obra_labor prestacion_servicios; do
+  curl -s -X POST http://localhost:8080/match -H 'Content-Type: application/json' \
+    -d "{\"candidato\":{\"skills\":[\"python\",\"fastapi\",\"docker\"],\"experiencia_anios\":2},\"vacante\":{\"skills_requeridas\":[\"python\",\"fastapi\",\"docker\"],\"experiencia_min\":2,\"tipo_contrato\":\"$t\"}}"
+  echo ""
+done
+# esperado: score 100 / 95 / 90
+```
+
+### Errores de validación (HTTP 400)
+
+```bash
+# falta tipo_contrato
+curl -s -w " [%{http_code}]\n" -X POST http://localhost:8080/match -H 'Content-Type: application/json' \
+  -d '{"candidato":{"skills":["python"],"experiencia_anios":3},"vacante":{"skills_requeridas":["python"],"experiencia_min":2}}'
+# {"error":"campo vacante.tipo_contrato requerido"} [400]
+
+# tipo incorrecto (experiencia_anios no es int)
+curl -s -w " [%{http_code}]\n" -X POST http://localhost:8080/match -H 'Content-Type: application/json' \
+  -d '{"candidato":{"skills":["python"],"experiencia_anios":"tres"},"vacante":{"skills_requeridas":["python"],"experiencia_min":2,"tipo_contrato":"indefinido"}}'
+# {"error":"campo candidato.experiencia_anios requerido"} [400]
+```
+
+### Logs estructurados (JSON-lines)
+
+```bash
+docker logs trycore-match --tail 10
+# {"event": "match_computed", "score": 74, "categoria": "GOOD_FIT"}
+# {"event": "http_request", "method": "POST", "path": "/match", "status": 200, ...}
 ```
 
 ## Cálculo del score
@@ -126,7 +185,6 @@ trycore-match/
 │   └── test_api.py          # Pruebas del endpoint HTTP
 ├── requirements.txt
 ├── Dockerfile
-├── docker-compose.yml
 ├── .dockerignore
 └── .gitignore
 ```
